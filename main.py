@@ -7,11 +7,11 @@ import paho.mqtt.client as mqtt
 import pymodbus
 from pymodbus.client import ModbusTcpClient
 import json
+import signal
 
 MIM_B19N_DEVICE: str | None = None
 MQTT_BROKER: str | None = None
 
-# broker = '192.168.1.204'
 state_topic = 'mimb19n/alive/state'
 delay = 5
 
@@ -48,6 +48,18 @@ MQTT_CONFIG = {
             "name": "Heat Pump"
         },
         "name": "Outdoor Temperature",
+    },
+    "homeassistant/sensor/compressor_frequency/config": {
+        "unit_of_measurement": "Hz",
+        "state_topic": "homeassistant/compressor_frequency/state",
+        "unique_id": "samsungmimb19n_compressor_frequency",
+        "device": {
+            "identifiers": [
+                f"heat_pump"
+            ],
+            "name": "Heat Pump"
+        },
+        "name": "Compressor Frequency",
     }
 }
 
@@ -66,6 +78,14 @@ if __name__ == '__main__':
     MQTT_BROKER = os.getenv("MQTT_BROKER")
     MIM_B19N_DEVICE = os.getenv("MIM_B19N_DEVICE")
 
+    if MQTT_BROKER is None:
+        logger.error("define Mqtt broker ip to MQTT_BROKER environment variable")
+        exit(-1)
+
+    if MIM_B19N_DEVICE is None:
+        logger.error("define mimb19n device ip to MIM_B19N_DEVICE environment variable")
+        exit(-1)
+
     modbus = ModbusTcpClient(host=MIM_B19N_DEVICE, port=4660, framer=pymodbus.Framer.RTU, timeout=5)
     modbus.connect()
     modbus.write_registers(address=6000, values=[0x8238, 0x8276, 0x8204], slave=2)
@@ -77,10 +97,17 @@ if __name__ == '__main__':
     client.connect(MQTT_BROKER)
     client.loop_start()
 
+
     def on_message(client, userdata, message):
         print("Received message '" + str(message.payload) + "' on topic '"
               + message.topic + "' with QoS " + str(message.qos))
 
+
+    def signal_handler(sig, frame):
+        print('You pressed Ctrl+C!')
+        exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     client.on_message = on_message
     client.subscribe("homeassistant/+/set")
@@ -136,6 +163,7 @@ if __name__ == '__main__':
             # extended registers
             result = modbus.read_holding_registers(4, 3, 2)
             logger.info(f"Compressor 1 freq {result.registers[0]} Hz")
+            client.publish("homeassistant/compressor_frequency/state", result.registers[0])
             logger.info(f"Compressor 2 freq {result.registers[1]} Hz")
             outdoor_temperature = interpret_signed_16(result.registers[2]) / 10
             logger.info(f"Outdoor temperature {outdoor_temperature} C")
@@ -148,4 +176,7 @@ if __name__ == '__main__':
         except Exception as e:
             logger.error(f"Exception {e}")
             time.sleep(1)
+            exit(0)
+        except KeyboardInterrupt:
+            logger.info(f"Stopping")
             exit(0)
