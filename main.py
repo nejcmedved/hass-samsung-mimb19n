@@ -11,6 +11,8 @@ import signal
 
 MIM_B19N_DEVICE: str | None = None
 MQTT_BROKER: str | None = None
+MQTT_USERNAME: str | None = None
+MQTT_PASSWORD: str | None = None
 
 state_topic = 'mimb19n/alive/state'
 delay = 5
@@ -92,7 +94,7 @@ if __name__ == '__main__':
     modbus.write_registers(address=7000, values=[0x4087, 0x42f1, 0x4067], slave=2)
     # Send messages in a loop
     client = mqtt.Client("hass-mimb19n")
-    client.username_pw_set('nejcmedved', 'nejcmedved')
+    client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
     # client.will_set()
     client.connect(MQTT_BROKER)
     client.loop_start()
