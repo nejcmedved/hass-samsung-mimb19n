@@ -38,6 +38,25 @@ MQTT_CONFIG = {
         "modes": ["off", "heat"],
         "preset_modes": ["Eco", "Normal", "Boost"]
     },
+    "homeassistant/climate/radiators/config": {
+        "device_class": "climate",
+        # "temperature_state_topic": "homeassistant/radiators_set_temperature/state",
+        "current_temperature_topic": "homeassistant/radiators_current_temperature/state",
+        "temperature_command_topic": "homeassistant/radiators_set_temperature/set",
+        "mode_state_topic": "homeassistant/radiators_mode/state",
+        "mode_command_topic": "homeassistant/radiators_mode/set",
+        "unique_id": "samsungmimb19n_radiators",
+        "max_temp": 55.0,
+        "min_temp": 35.0,
+        "device": {
+            "identifiers": [
+                f"heat_pump"
+            ],
+            "name": "Heat Pump"
+        },
+        "name": "Radiators temperature control",
+        "modes": ["off", "heat"],
+    },
     "homeassistant/sensor/outdoor_temperature/config": {
         "device_class": "temperature",
         "unit_of_measurement": "°C",
@@ -79,6 +98,8 @@ if __name__ == '__main__':
 
     MQTT_BROKER = os.getenv("MQTT_BROKER")
     MIM_B19N_DEVICE = os.getenv("MIM_B19N_DEVICE")
+    MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
+    MQTT_USERNAME = os.getenv("MQTT_USERNAME")
 
     if MQTT_BROKER is None:
         logger.error("define Mqtt broker ip to MQTT_BROKER environment variable")
@@ -86,6 +107,10 @@ if __name__ == '__main__':
 
     if MIM_B19N_DEVICE is None:
         logger.error("define mimb19n device ip to MIM_B19N_DEVICE environment variable")
+        exit(-1)
+
+    if MQTT_PASSWORD is None or MQTT_USERNAME is None:
+        logger.error("define MQTT_PASSWORD and MQTT_USERNAME")
         exit(-1)
 
     modbus = ModbusTcpClient(host=MIM_B19N_DEVICE, port=4660, framer=pymodbus.Framer.RTU, timeout=5)
@@ -103,11 +128,17 @@ if __name__ == '__main__':
     def on_message(client, userdata, message):
         print("Received message '" + str(message.payload) + "' on topic '"
               + message.topic + "' with QoS " + str(message.qos))
+        if message.topic == "homeassistant/radiators_set_temperature/set":
+            reg = 69
+            value = int(float(message.payload) * 10)
+            a = modbus.write_register(reg, value, 2)
+            logger.info(f"set new temperature for radiators to {value}")
 
 
     def signal_handler(sig, frame):
         print('You pressed Ctrl+C!')
         exit(0)
+
 
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -122,8 +153,12 @@ if __name__ == '__main__':
     while True:
         # house heating
         try:
+            result = modbus.read_holding_registers(50, 1, 2)
+            ok = result.registers[0]
             result = modbus.read_holding_registers(52, 1, 2)
             logger.info(f"House heading is operating {bool(result.registers[0])}")
+            payload = "heat" if result.registers[0] == 1 else "off"
+            client.publish("homeassistant/radiators_mode/state", payload)
             # house heating mode
             result = modbus.read_holding_registers(53, 1, 2)
             modes = {
@@ -134,9 +169,11 @@ if __name__ == '__main__':
             logger.info(f"House heading is operating in mode {modes[result.registers[0]]}")
             # water in / out / set
             result = modbus.read_holding_registers(65, 4, 2)
-            logger.info(f"Water in temperature {result.registers[0] / 10} C")
-            logger.info(f"Water out temperature {result.registers[1] / 10} C")
-            logger.info(f"Heating water set temperature {result.registers[3] / 10} C")
+            logger.info(f"Water in temperature {result.registers[0] / 10} C")  # 65
+            logger.info(f"Water out temperature {result.registers[1] / 10} C")  # 66
+            radiators_current_temperature = result.registers[3] / 10
+            logger.info(f"Heating water set temperature {radiators_current_temperature} C")  # 68
+            client.publish("homeassistant/radiators_current_temperature/state", radiators_current_temperature)
 
             # dhw
             result = modbus.read_holding_registers(72, 4, 2)
