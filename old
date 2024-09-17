@@ -1,0 +1,69 @@
+            result = modbus.read_holding_registers(50, 2, 2)
+            ok = result.registers[0]
+            if ok != 7:
+                logger.info(f"device not ready yet!")
+                time.sleep(5)
+                continue
+            ok2 = result.registers[1]
+            time.sleep(0.1)
+            result = modbus.read_holding_registers(52, 1, 2)
+            logger.info(f"House heading is operating {bool(result.registers[0])}")
+            payload = "heat" if result.registers[0] == 1 else "off"
+            client.publish("homeassistant/radiators_mode/state", payload)
+            # house heating mode
+            result = modbus.read_holding_registers(53, 1, 2)
+            time.sleep(0.1)
+            modes = {
+                0: 'Water law',
+                4: 'Heating',
+                1: 'Cooling'
+            }
+
+            logger.info(f"House heading is operating in mode {modes[result.registers[0]]}")
+            # water in / out / set
+            result = modbus.read_holding_registers(65, 4, 2)
+            time.sleep(0.1)
+            logger.info(f"Water in temperature {result.registers[0] / 10} C")  # 65
+            logger.info(f"Water out temperature {result.registers[1] / 10} C")  # 66
+            radiators_current_temperature = result.registers[3] / 10
+            logger.info(f"Heating water set temperature {radiators_current_temperature} C")  # 68
+            client.publish("homeassistant/radiators_current_temperature/state", radiators_current_temperature)
+
+            # dhw
+            result = modbus.read_holding_registers(72, 4, 2)
+            time.sleep(0.1)
+            logger.info(f"DHW on {result.registers[0]}")
+            payload = "heat" if result.registers[0] == 1 else "off"
+            client.publish("homeassistant/dhw_mode/state", payload)
+
+            logger.info(f"DHW mode {result.registers[1]}")
+            dhw_mode_num: int = result.registers[1]
+            dhw_mode_str: str = ""
+            if dhw_mode_num == 0:
+                dhw_mode_str = "Eco"
+            elif dhw_mode_num == 1:
+                dhw_mode_str = "Normal"
+            elif dhw_mode_num == 2:
+                dhw_mode_str = "Boost"
+            client.publish("homeassistant/dhw_preset_mode/state", dhw_mode_str)
+            dhw_set_temperature: float = result.registers[2] / 10
+            logger.info(f"DHW set temperature {result.registers[2] / 10} C")
+            client.publish("homeassistant/dhw_set_temperature/state", dhw_set_temperature)
+            # dhw current temp
+            dhw_current_temperature: float = result.registers[3] / 10
+            client.publish("homeassistant/dhw_current_temperature/state", dhw_current_temperature)
+            logger.info(f"DHW current temperature {result.registers[3] / 10} C")
+
+            # extended registers
+            result = modbus.read_holding_registers(4, 3, 2)
+            time.sleep(0.1)
+            logger.info(f"Compressor 1 freq {result.registers[0]} Hz")
+            client.publish("homeassistant/compressor_frequency/state", result.registers[0])
+            logger.info(f"Compressor 2 freq {result.registers[1]} Hz")
+            outdoor_temperature = interpret_signed_16(result.registers[2]) / 10
+            logger.info(f"Outdoor temperature {outdoor_temperature} C")
+            client.publish("homeassistant/outdoor_temperature/state",
+                           outdoor_temperature)
+
+            # extended registers 2
+            result = modbus.read_holding_registers(82, 3, 2)

@@ -1,6 +1,6 @@
 FROM python:alpine
 
-RUN pip install pymodbus paho-mqtt
+RUN pip install paho-mqtt
 
 ADD main.py .
 

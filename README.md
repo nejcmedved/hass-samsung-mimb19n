@@ -1,3 +1,7 @@
+# NASA protocol 
+
+Available on https://wiki.myehs.eu/wiki/NASA_Protocol
+
 # hass-samsung-mimb19n
 Home assistant samsung mim-b19n module integration
 
