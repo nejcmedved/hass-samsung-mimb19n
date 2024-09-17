@@ -149,8 +149,7 @@ class NasaParser:
             print(f"Got register {NASA_REGISTERS[register][1]} value = {value}")
             self.registers[register] = value
         else:
-            pass
-            # print(f"Register {hex(register)} unknown")
+            print(f"Got register={hex(register)} value={value}")
 
     def decode(self, data: bytes):
         print(f"data {' '.join(f'{byte:02X}' for byte in data)}")
