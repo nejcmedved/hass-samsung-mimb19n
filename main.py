@@ -68,6 +68,15 @@ def main():
             print(f"send {' '.join(f'{byte:02X}' for byte in payload)}")
             nasa_task.send_data(payload)
             logger.info(f"set new temperature for radiators to {value}")
+        if message.topic == "homeassistant/radiators_mode/set":
+            value = 0 if message.payload == "off" else 1
+            packet = NasaPacket()
+            packet.dst_device = NasaDevice.Indoor
+            packet.add_write_msg(0x4000, value, 1)
+            payload: bytearray = packet.encode()
+            print(f"send {' '.join(f'{byte:02X}' for byte in payload)}")
+            nasa_task.send_data(payload)
+            logger.info(f"set new radiators mode {value}")
 
     def signal_handler(sig, frame):
         print('You pressed Ctrl+C!')

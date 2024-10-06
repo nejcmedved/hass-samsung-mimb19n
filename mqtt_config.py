@@ -28,7 +28,7 @@ MQTT_CONFIG = {
         "mode_command_topic": "homeassistant/radiators_mode/set",
         "unique_id": "samsungmimb19n_radiators",
         "max_temp": 55.0,
-        "min_temp": 35.0,
+        "min_temp": 25.0,
         "device": {
             "identifiers": [
                 f"heat_pump"

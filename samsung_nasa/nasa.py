@@ -11,7 +11,8 @@ NASA_REGISTERS = {
              "Instantaneous power consumption of outdoor unit. One outdoor unit. Not used by the controller."),
     0x8413: ("LVAR_OUT_CONTROL_WATTMETER_1W_1MIN_SUM", "Outdoor unit instantaneous power consumption. Sum of modules"),
     0x0406: ("NASA_ALL_POWER_CONSUMPTION_SET", "	Total instantaneous power consumption"),
-    0x0407: ("NASA_ALL_POWER_CONSUMPTION_CUMULATIVE", "	Total cumulative power consumption")
+    0x0407: ("NASA_ALL_POWER_CONSUMPTION_CUMULATIVE", "	Total cumulative power consumption"),
+    0x8238: ("NASA_OUTDOOR_COMP1_RUN_HZ", "	Current frequency 1")
 }
 
 READ_REGISTERS = {
@@ -178,13 +179,15 @@ class NasaParser:
                 value = payload[pos + 2]
                 pos += 3
             elif dtype == 1:
-                value = payload[pos + 2] << 8 | payload[pos + 3]
+                value = (payload[pos + 2] << 8) | payload[pos + 3]
                 pos += (2 + 2)
             elif dtype == 2:
-                value = payload[pos + 2] << 24 | payload[pos + 3] << 16 | payload[pos + 4] << 8 | payload[pos + 5]
+                value = (payload[pos + 2] << 24) | (payload[pos + 3] << 16) | (payload[pos + 4]) << 8 | (payload[pos + 5])
                 pos += (2 + 4)
             elif dtype == 3:
                 continue
+            else:
+                raise ValueError(f"Unkwown datatype {dtype}")
 
             self.print_register(msg_num, value)
         end = data[-1]
